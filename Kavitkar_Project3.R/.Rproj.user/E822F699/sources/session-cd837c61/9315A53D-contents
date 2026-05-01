@@ -1,0 +1,252 @@
+# Name: Bhakti Vijayanta Kavitkar
+# Date: 04/25/2026
+# Class: ALY 6000 Introduction to Analytics (CRN- 80170 Section- 02)
+
+#Clean canvas
+# clears console
+cat("\014")
+# clears global environment
+rm(list = ls()) 
+# clears plots
+graphics.off() 
+# clears packages
+try(p_unload(p_loaded(), character.only = TRUE), silent = TRUE) 
+
+# Libraries ----
+library(tidyverse) 
+library(janitor)
+library(ggplot2)
+library(lubridate)
+
+# To see the list of packages loaded (optional)
+(.packages())
+
+setwd("~/Kavitkar_Project3.R")
+books <- read.csv("books.csv")
+
+# Question 1 ---- 
+# Cleaning the column names for the dataframe
+
+books <- clean_names(books)
+names(books) # Column names have been standardized using the janitor package
+
+# Question 2 ---- 
+# Converted first_publish_date column to a data type date
+
+books$first_publish_date <- mdy(books$first_publish_date)
+books %>% 
+  select(first_publish_date) %>% 
+  glimpse()
+
+# first_publish_date has been updated from mm/dd/yy to yyyy-mm-dd format
+
+# Question 3 ---- 
+# Extracted year from the first_publish_date column
+ 
+books$year <- year(books$first_publish_date)
+books %>% 
+  select(year) %>% 
+  glimpse() 
+
+# Question 4 ---- 
+# Filtered data set to include books published to specific year
+
+books <- filter(books, year>=1990 & year<=2020)
+books %>% 
+  distinct(year) %>%
+  arrange(year) # Printing unique year values to the console
+
+# Question 5 ---- 
+# Removing certain columns from the data set
+
+books <- select(books, -c("publish_date","edition","characters","price",
+                          "genres","setting","isbn"))
+names(books) # No of cols reduced to 17
+
+# Question 6 ----
+# Filtering to books that are fewer than 700 pages
+
+books <- filter(books, pages < 700)
+glimpse(books)
+
+# Question 7 ----
+# Removing rows with NA
+
+books <- na.omit(books)
+
+# Question 8 ----
+# Using glimpse function
+
+glimpse(books) 
+
+# After omitting NAs, the dataset has been reduced to 8490 rows x 17 cols
+
+# Question 9 ----
+# Using summary function on the books dataframe
+
+summary(books)
+
+# Question 10 ----
+# Creating histogram of ratings
+
+ggplot(books, aes(x = rating)) +
+  geom_histogram(binwidth = 0.25,
+                 fill = "red",
+                 color = 'black') +
+  labs(title = "Histogram of Book Ratings.", 
+       x= "Rating.", 
+       y= "Number of Books.")  + 
+  theme_minimal()
+  theme(plot.title = element_text(hjust = 0.5))
+
+# Question 11 ----
+# Creating boxplot of Page Counts
+
+ggplot(books, aes(x = pages)) +
+  geom_boxplot(fill = "red") +
+  labs(title = "Box Plot of Page Counts.", 
+       x= "Pages.") +
+  coord_flip() +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+# Question 12 ----
+# Grouping book count by year
+
+by_year <-  
+  books %>%
+  group_by(year) %>%  
+  arrange(year) %>%
+  summarise(
+    total_books = n()
+)
+
+# Question 13 ----
+# Creating a line plot of books rated per year
+
+ggplot(by_year, aes(x = year, y = total_books)) +
+  geom_line() +
+  geom_point() +
+  labs(title = "Total Number of Books Rated Per Year." , 
+       x= "Year" , 
+       y = "Total Books") +
+  theme_minimal() 
+
+# Question 14 ----
+# Grouping book counts by publisher 
+
+book_publisher <- 
+  books %>%
+  group_by(publisher) %>%
+  summarise(book_count = n()) 
+
+# Question 15 ----
+# Removing publisher with fewer books than 125
+
+book_publisher <- filter(book_publisher, book_count >= 125) 
+
+# Question 16 ----
+# Arranging the data in descending order of book counts
+
+book_publisher <- arrange(book_publisher , desc(book_count))
+
+# Question 17 ----
+# Calculating a new column cum_counts as cummulative sum of book counts/publisher
+
+book_publisher$cum_counts <- cumsum(book_publisher$book_count)
+
+# Question 18 ----
+# Calculating a new column rel_freq as relative frequency of book counts
+  
+book_publisher$rel_freq <- book_publisher$book_count / tail(book_publisher$cum_counts,1)
+book_publisher$rel_freq <- as.double(book_publisher$rel_freq)
+
+# Question 19 ----
+# Calculating a new column cum_freq as cummulative sum of the relative frequency
+
+book_publisher$cum_freq <- cumsum(book_publisher$rel_freq)
+book_publisher$cum_freq <- as.double(book_publisher$cum_freq)
+
+# Question 20 ----
+# Making the publisher column into a factor 
+
+book_publisher$publisher <- factor(book_publisher$publisher,
+                                   levels = book_publisher$publisher)
+
+glimpse(book_publisher)
+
+# Question 21 ----
+# Plotting a Pareto chart with ogive of cumulative counts 
+
+ggplot(book_publisher, aes(x = publisher)) +
+  geom_bar(aes(y = book_count),
+           stat = "identity",
+           fill = "cyan") +
+  geom_line(aes(y = cum_counts, group = 1),
+            color = "black") +
+  geom_point(aes(y = cum_counts),
+             color = "black") +
+  labs(title = "Book Counts (1990 - 2020).",
+       x = "Publisher.",
+       y = "Number of Books.") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(hjust = 0.5),
+        panel.grid.major.x = element_blank(), 
+        panel.grid.minor.x = element_blank(), 
+        panel.grid.major.y = element_line(linetype = "dotted", color = "grey"),  
+        panel.grid.minor.y = element_blank()) 
+
+# Question 22 ----
+# For the additional visualization, I'm using the price data to check
+# how the price of books has changes over the last 20 years (2000 - 2020)
+
+# Reprocessing the csv since we dropped the price column
+
+books_new <- read.csv("books.csv")
+books_new <- clean_names(books_new)
+
+books_new <- select(books_new,first_publish_date,price)
+
+books_new$first_publish_date <- mdy(books_new$first_publish_date)
+books_new$year <- year(books_new$first_publish_date)
+
+# The price column is treated as chr by default so we will change it to numeric
+books_new$price <- as.numeric(books_new$price)
+
+# Drop the NAs
+books_new <- na.omit(books_new)
+
+summary(books_new)
+
+# Taking a look at the summary of the dataset, we can see that the data for price
+# is fairly skewed with huge outliers. Hence, we will consider the median price instead.
+year_by_price <-
+  books_new %>%
+  select(year,price) %>%
+  filter(year >= 2000 & year <= 2020) %>%
+  group_by(year) %>%
+  summarise(median_price = median(price))
+
+# Looking at the data to make sure it looks good before plotting it out
+glimpse(year_by_price)
+
+# Since the price before 2000 did not vary as much and is not a good indicator for
+# book prices in the modern era, I decided to leave them out and focus on prices
+# between 2000 to 2020
+ggplot(year_by_price, aes(x = year, y = median_price)) +
+  geom_line(color = "purple") +
+  geom_point(color = "purple") +
+  labs(title = "Median Price of Books over Years (2000 - 2020)",
+       x = "Year",
+       y = "Median Price") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+# By looking at the graph, we can see that there has been a steep increase in
+# the median price of books since 2010
+ 
+
+
+
+
